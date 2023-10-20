@@ -48,11 +48,11 @@ def get_reward(game, color, winner, move_selected, move_actual, enemy_attacked, 
 
 
 def reinforcement_training(engine, games, metadata, epsilon, gamma):
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer = tf.keras.optimizers.Adam(1e-6)
     game_num = 0
     for game in games:
         if game_num > 1:
-            predictor = Engine("predictor_model_iter_" + (game_num-1))
+            predictor = Engine("predictor_model.h5")
         else:
             predictor = engine
 
@@ -74,7 +74,7 @@ def reinforcement_training(engine, games, metadata, epsilon, gamma):
                 curr_Q = predictor.predict(temp_game)
                 player_attacked, dummy = temp_game.all_squares_attacked(player_color)
                 enemy_attacked, xrays = temp_game.all_squares_attacked(enemy_color)
-                m = temp_game.generate_legal_moves(0, enemy_attacked, xrays)
+                m = temp_game.generate_legal_moves(player_color, enemy_attacked, xrays)
                 moves = list(chain.from_iterable(m))
                 q_values = get_q_values(predictor, temp_game, moves, player_color)
 
@@ -98,56 +98,11 @@ def reinforcement_training(engine, games, metadata, epsilon, gamma):
             temp_game.make_move(move, save=False, promo_code=0)
             player_color = 1 - player_color
             enemy_color = 1 - player_color
-            epsilon = epsilon * 0.9
+            epsilon = epsilon * 0.9995
 
         if game_num != 0:
-            engine.model.save("predictor_model_iter_" + game_num)
-            if game_num > 1:
-                os.remove("predictor_model_iter_" + (game_num-1))
+            engine.model.save("predictor_model", overwrite=True, save_format="h5")
         game_num += 1
 
         if game_num > 1000:
             break
-
-# MCTS stuff
-"""
-def execute_episode(nnet):
-    numSims = 10
-    examples = []
-    game = Game(0, 1)
-
-    while True:
-        visited = {}
-        Q_values = {}
-        N = {}
-        # for _ in range(numSims):
-            # MCTS(0, visited, game, nnet, Q_values, N)
-        board3d = 0 # implement
-        #examples.append([board3d, pi, None])
-        #action = random.choice(len(mcts.pi(s)), p=mcts.pi(s))
-        #game.make_move(action)
-        if game.is_mate(0,1) or game.is_mate(1,0):
-            if game.checkmate == 0:
-                examples[0][2] = -1
-            elif game.checkmate == 1:
-                examples[0][2] = 1
-            elif game.checkmate == 2:
-                examples[0][2] = 0
-            return examples
-
-def policyIterSP(game, num_iters, num_eps, threshold):
-    engine_old = Engine()
-    engine_new = Engine()
-    nnet = engine_old.build_model()
-    new_nnet = engine_new.build_model()
-    examples = []
-    for i in range(num_iters):
-        for e in range(num_eps):
-            examples += execute_episode(game, nnet)
-        # new_nnet = trainNNet(examples)
-        # score = pit(new_nnet, nnet)
-        # if score > threshold:
-        #    nnet = new_nnet
-    return nnet
-"""
-
