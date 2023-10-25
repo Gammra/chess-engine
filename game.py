@@ -131,7 +131,7 @@ class Game:
                     screen.blit(br_img, (x, y))
                 elif curr_piece.piece_type == 5:
                     screen.blit(bq_img, (x, y))
-        pygame.display.update()
+            pygame.display.update()
 
     def square_at_pos(self, mouse_pos):
         x, y = mouse_pos

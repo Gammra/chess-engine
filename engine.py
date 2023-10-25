@@ -3,7 +3,7 @@ from tensorflow import keras
 import numpy as np
 
 class Engine:
-    def __init__(self, model_name="greedy_test.h5"):
+    def __init__(self, model_name="default_engine1.h5"):
         self.model = keras.models.load_model(model_name)
 
     def is_promo(self, color, move):

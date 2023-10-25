@@ -55,7 +55,7 @@ def get_reward(game, color, winner, move_selected, move_actual, enemy_attacked, 
 
 
 def reinforcement_training(engine, games, metadata, epsilon, gamma):
-    optimizer = tf.keras.optimizers.Adam(1e-6)
+    optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=1e-6)
     game_num = 0
     all_grads = []
     for game in games:
@@ -76,7 +76,6 @@ def reinforcement_training(engine, games, metadata, epsilon, gamma):
         else:
             winner = 2
 
-        optimizer.build(engine.model.trainable_variables)
         for move in game:
             with tf.GradientTape(watch_accessed_variables=False) as tape:
                 tape.watch(engine.model.trainable_variables)

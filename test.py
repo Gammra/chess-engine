@@ -45,7 +45,7 @@ def perft(game, depth, color, enemy_color):
 def debug_training(SCREEN):
     from main import train_model
 
-    engine = Engine()
+    engine = Engine("greedy_test.h5")
 
     load_data = input("Would you like to load preprocessed training data? ")
     if load_data == "n":
@@ -55,45 +55,6 @@ def debug_training(SCREEN):
     model_name = input("Please enter a name for the model: ") + ".h5"
     train_model(engine, training_filename, model_name)
     engine.model.summary()
-
-    player_color = 0
-    CPU_color = 1
-    game = Game(player_color, CPU_color)
-
-    while game.checkmate == -1:
-        if player_color == 0:
-            game.draw_board(SCREEN)
-            game.draw_pos(SCREEN)
-            pygame.display.update()
-            game.make_player_move()
-            if game.is_mate(0, 1):
-                break
-            game.draw_board(SCREEN)
-            game.draw_pos(SCREEN)
-            pygame.display.update()
-            engine.make_CPU_move(game.CPU_color, game, 2)
-            if game.is_mate(1, 0):
-                break
-        else:
-            game.draw_board(SCREEN)
-            game.draw_pos(SCREEN)
-            pygame.display.update()
-            engine.make_CPU_move(game.CPU_color, game, 2)
-            if game.is_mate(1, 0):
-                break
-            game.draw_board(SCREEN)
-            game.draw_pos(SCREEN)
-            pygame.display.update()
-            game.make_player_move()
-            if game.is_mate(0, 1):
-                break
-
-    if game.checkmate == 0:
-        print("Black wins!")
-    elif game.checkmate == 1:
-        print("White Wins!")
-    if game.checkmate == 2:
-        print("The game has ended in stalemate.")
 
 
 def two_player_testing(SCREEN):

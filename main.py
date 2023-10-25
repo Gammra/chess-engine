@@ -62,24 +62,20 @@ def run_game(engine):
         if player_color == 0:
             game.draw_board(SCREEN)
             game.draw_pos(SCREEN)
-            game.make_player_move()
+            if player_color == 0:
+                game.make_player_move()
+            else:
+                engine.make_CPU_move(game.CPU_color, game, 1)
             if game.is_mate(0, 1):
                 break
+
             game.draw_board(SCREEN)
             game.draw_pos(SCREEN)
-            engine.make_CPU_move(game.CPU_color, game, 2)
+            if player_color == 1:
+                game.make_player_move()
+            else:
+                engine.make_CPU_move(game.CPU_color, game, 1)
             if game.is_mate(1, 0):
-                break
-        else:
-            game.draw_board(SCREEN)
-            game.draw_pos(SCREEN)
-            engine.make_CPU_move(game.CPU_color, game, 2)
-            if game.is_mate(1, 0):
-                break
-            game.draw_board(SCREEN)
-            game.draw_pos(SCREEN)
-            game.make_player_move()
-            if game.is_mate(0, 1):
                 break
 
     if game.checkmate == 0:
