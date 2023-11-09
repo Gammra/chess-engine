@@ -1,9 +1,8 @@
-import json
-
 from game import Game
 from board import Board
 from board import Piece
 from engine import Engine
+import json
 import rl
 import training_data
 import os
@@ -57,7 +56,7 @@ def run_game(engine):
 
     game = Game(player_color, CPU_color)
 
-    # run the game loop until a mate is reached, then break
+    # run the game loop until a mate is reached
     while game.checkmate == -1:
         if player_color == 0:
             game.draw_board(SCREEN)
@@ -65,7 +64,7 @@ def run_game(engine):
             if player_color == 0:
                 game.make_player_move()
             else:
-                engine.make_CPU_move(game.CPU_color, game, 1)
+                engine.make_CPU_move(game.CPU_color, game, 3)
             if game.is_mate(0, 1):
                 break
 
@@ -74,7 +73,7 @@ def run_game(engine):
             if player_color == 1:
                 game.make_player_move()
             else:
-                engine.make_CPU_move(game.CPU_color, game, 1)
+                engine.make_CPU_move(game.CPU_color, game, 3)
             if game.is_mate(1, 0):
                 break
 
@@ -90,27 +89,33 @@ def load_model(engine, model_name):
     engine.model = tf.keras.models.load_model(model_name)
 
 
-# Extracts positions from PGN games and evaluates them. Afterwards train the model.
+"""
+If the user entered a filename, load the chosen PGN file. Convert from PGN format to a list of moves (pos1, pos2), and 
+evaluate each position reached in each game.
+If the user did not enter a filename, load the default preprocessed data.
+Then pretrain the model using this data, and enter the reinforcement learning loop (if the user wants, they can skip
+directly to RL).
+"""
 def train_model(engine, training_filename, model_name):
     training_filename = "pgns/" + training_filename
     epochs = 5
     conv_size, conv_depth = 32, 3
 
     if training_filename != "pgns/":
-        metadata, games = training_data.import_train_data(training_filename)
+        metadata, games, promos = training_data.import_train_data(training_filename)
+        train_pos, train_eval = training_data.split_and_eval(games, promos)
         """
-        with open("training_games.txt", "w") as f:
-            json.dump(games, f)
-        with open("training_metadata.txt", "w") as f:
-            json.dump(metadata, f)
+        with open("training_data/training_promos.txt", "w") as f:
+            json.dump(promos, f)
         """
-        train_pos, train_eval = training_data.split_and_eval(games)
     else:
         train_pos, train_eval = training_data.load_all_train_data()
-        with open("training_games.txt", "r") as f:
+        with open("training_data/training_games.txt", "r") as f:
             games = json.load(f)
-        with open("training_metadata.txt", "r") as f:
+        with open("training_data/training_metadata.txt", "r") as f:
             metadata = json.load(f)
+        with open("training_data/training_promos.txt", "r") as f:
+            promos = json.load(f)
 
     skip = input("Would you like to skip to reinforcement training? ")
     if skip == "n":
@@ -119,7 +124,7 @@ def train_model(engine, training_filename, model_name):
 
     epsilon = 0.99
     gamma = 0.95
-    rl.reinforcement_training(engine, games, metadata, epsilon, gamma)
+    rl.reinforcement_training(engine, games, promos, metadata, epsilon, gamma)
 
 
 def run_debug():
@@ -135,7 +140,7 @@ def run_debug():
 
     # debug training
     if test_mode == "1":
-        test.debug_training(SCREEN)
+        test.debug_training()
 
     # debug with the ability to move both black and white pieces
     elif test_mode == "2":
@@ -161,7 +166,7 @@ def main():
             model_name = input("Input a model name: ")
             load_model(engine, model_name)
         elif mode == "3":
-            training_data_name = input("Input a training data filename: ") + ".pgn"
+            training_data_name = input("Input a training data filename (leave blank to load default data): ") + ".pgn"
             model_name = input("Input a model name: ") + ".h5"
             train_model(engine, training_data_name, model_name)
         elif mode == "4":
@@ -175,7 +180,7 @@ def main():
             os.system('cls')
 
 
-# generates a game state based on a fen string
+# returns a game class initialized to the position from a FEN string.
 def read_fen(filename):
     fen_game = Game(0, 1)
     fen_game.init_from_fen(0, 1)

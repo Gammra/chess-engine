@@ -167,10 +167,6 @@ class Game:
                 move = (init_pos, target_pos)
                 enemy_attacked, xrays = self.all_squares_attacked(self.CPU_color)
 
-                CPU_pieces = self.white_piece_pos
-                if self.CPU_color == 1:
-                    CPU_pieces = self.black_piece_pos
-
                 piece_moves = []
                 if piece_selected.piece_type == 0:
                     piece_moves = self.board.generate_king_moves(move[0])
@@ -485,7 +481,8 @@ class Game:
             elif move[0] == 7 or move[0] == 63:
                 self.castles_kingside[piece_moved.color] = 0
 
-        if save: return state
+        if save:
+            return state
 
     def undo_move(self, save_state):
         piece_moved = save_state.piece_moved
@@ -593,14 +590,11 @@ class Game:
 
     def generate_legal_moves(self, color, enemy_attacked, xrays):
         all_moves = [[], [], [], [], [], []]
-        dummy = []
 
-        enemy_king_pos = self.white_piece_pos[0][0]
         if color == 0:
             pieces = self.white_piece_pos
         else:
             pieces = self.black_piece_pos
-            enemy_king_pos = self.black_piece_pos[0][0]
 
         king_moves = self.board.generate_king_moves(pieces[0][0])
         for i in king_moves:

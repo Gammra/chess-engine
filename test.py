@@ -1,7 +1,6 @@
 from engine import Engine
 from game import Game
 from main import read_fen
-import pygame
 import cProfile
 import pstats
 
@@ -28,24 +27,17 @@ def perft(game, depth, color, enemy_color):
         for move in piece_type:
             save_state = game.make_move(move, True, promo_num % 4)
             num_moves += perft(game, depth-1, enemy_color, color)
-
-            # TODO show moves from 20 first moves
-            # if depth == 3: print(move)
-
             game.undo_move(save_state)
             if game.board.board[move[0]].piece_type == 1 and is_promo(color, move):
                 promo_num += 1
 
-    # TODO show moves from 20 first moves
-    # if depth == 2: print(num_moves)
-
     return num_moves
 
 
-def debug_training(SCREEN):
+def debug_training():
     from main import train_model
 
-    engine = Engine("greedy_test.h5")
+    engine = Engine()
 
     load_data = input("Would you like to load preprocessed training data? ")
     if load_data == "n":
@@ -62,7 +54,7 @@ def two_player_testing(SCREEN):
 
     game = Game(0, 1)
     is_fen = input("Would you like to load the board from a fen string? (y or n): ")
-    # TODO add invalid extension exception
+
     if is_fen == 'y':
         filename = input("Input a filename: ")
         game = read_fen(filename)

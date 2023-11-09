@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 from game import Game
 
@@ -49,21 +51,29 @@ def import_train_data(filename):
                 is_meta = True
                 last = i + 1
 
-        # now go through the games, converting all moves into a numeric format and concatenating them into one list
+        # now go through the games, converting all moves into (pos1, pos2) format and concatenating them into one list
         converted_games = []
+        promos = []
         for i in range(0, len(games)):
             curr_game = []
+            curr_promos = []
             temp_game = Game(0, 1)
             for j in range(0, len(games[i])):
                 games[i][j] = games[i][j].split(" ")
-                curr_game += convert_to_numeric(games[i][j], temp_game)
+                t, p = convert_to_numeric(games[i][j], temp_game)
+                curr_game += t
+                curr_promos += p
             converted_games.append(curr_game)
+            if len(curr_promos) == 0:
+                curr_promos.append(0)
+            promos.append(curr_promos)
 
-        return metadata, converted_games
+        return metadata, converted_games, promos
 
 
 def convert_to_numeric(game, temp_game):
     numeric_game = []
+    promos = []
     color = 0
     for i in range(0, len(game), 1):
         # end is reached
@@ -180,6 +190,7 @@ def convert_to_numeric(game, temp_game):
                 promo_piece = 4
             temp_game.make_move(move, save=False, promo_code=promo_piece-2)
             numeric_game.append(move)
+            promos.append(promo_piece-2)
             continue
 
         # unambiguous capture
@@ -292,20 +303,21 @@ def convert_to_numeric(game, temp_game):
                 promo_piece = 4
             temp_game.make_move(move, save=False, promo_code=promo_piece - 2)
             numeric_game.append(move)
+            promos.append(promo_piece - 2)
             continue
 
-    return numeric_game
+    return numeric_game, promos
 
 
-def split_and_eval(games):
+def split_and_eval(games, promos):
     positions = []
     evaluations = []
 
-    for game in games:
-        promo_num = 0
+    for game, promo in zip(games, promos):
         temp_game = Game(0, 1)
         move_count = 0
 
+        promo_num = 0
         for move in game:
             piece_type = temp_game.board.board[move[0]].piece_type
             color = temp_game.board.board[move[0]].color
@@ -316,13 +328,16 @@ def split_and_eval(games):
             board3d = split_dims(temp_game.board, w_attacked, b_attacked)
             # add to the list of corresponding positions and evaluations
             positions.append(board3d)
-            evaluations.append(material_count(temp_game))
+            if material_count(temp_game) != 0:
+                evaluations.append(material_count(temp_game))
+            else:
+                evaluations.append(np.random.randint(-1.5, 1.5))
 
-            temp_game.make_move(move, save=False, promo_code=promo_num % 4)
-
-            if piece_type == 1 and is_promo(color, move):
-                promo_num += 1
+            temp_game.make_move(move, save=False, promo_code=promo[promo_num])
             move_count += 1
+
+            if is_promo(color, move) and temp_game.board.board[move[0]].piece_type == 1:
+                promo_num += 1
 
     positions = np.array(positions)
     evaluations = np.array(evaluations)
@@ -330,7 +345,7 @@ def split_and_eval(games):
     save = input("Would you like to save the training data? ")
 
     if save == "y":
-        save_training_data(positions, evaluations)
+        save_training_data(positions, evaluations, promos)
 
     return positions, evaluations
 
@@ -371,12 +386,14 @@ def material_count(game):
     return w_total - b_total
 
 
-def save_training_data(positions, evaluations):
+def save_training_data(positions, evaluations, promos):
         filename = input("Input a filename: ")
         pos_name = filename + "positions"
         eval_name = filename + "evaluations"
+        promo_name = filename + "promos"
         np.save(pos_name, positions)
         np.save(eval_name, evaluations)
+        np.save(promo_name, promos)
 
 
 def split_dims(board, w_attacked, b_attacked):

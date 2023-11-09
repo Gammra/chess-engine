@@ -3,7 +3,6 @@ import random
 import numpy as np
 import tensorflow as tf
 from game import Game
-from MCTS import MCTS
 from engine import Engine
 from itertools import chain
 
@@ -21,44 +20,66 @@ def get_q_values(engine, game, moves, color):
 
 
 def get_reward(game, color, winner, move_selected, move_actual, enemy_attacked, player_attacked):
+    from training_data import is_promo
     reward = 0
     enemy_color = 1 - color
+
+    # reward castling
+    if game.is_legal_castle(move_selected, enemy_attacked):
+        if color == 0:
+            reward += 2.5
+        else:
+            reward -= 2.5
+
+    # reward promos
+    if is_promo(color, move_selected):
+        if color == 0:
+            reward += 7.5
+        else:
+            reward -= 7.5
 
     # reward if the move was the actual move selected by a pro
     if move_selected == move_actual:
         if color == 0:
-            reward += 11
+            reward += 50
             if color == winner:
-                reward += 11
+                reward += 50
         else:
-            reward -= 11
+            reward -= 50
             if color == winner:
-                reward -= 11
+                reward -= 50
 
     # reward taking
     if game.board.board[move_selected[1]].color == enemy_color:
         if color == 0:
-            reward += 2.2
+            reward += 2.5
         else:
-            reward -= 2.2
+            reward -= 2.5
+
+        # avoid unfavorable trades
+        if enemy_attacked[move_selected[1]] == 1 and game.board.board[move_selected[0]].piece_type < game.board.board[move_selected[1]].piece_type:
+            if color == 0:
+                reward -= 5
+            if color == 1:
+                reward += 5
 
     # avoid hanging
     if enemy_attacked[move_selected[1]] == 1 and player_attacked[move_selected[1]] == 0:
         if color == 0:
-            reward -= 4.4
+            reward -= 7.5
         if color == 1:
-            reward += 4.4
-
-
+            reward += 7.5
 
     return reward
 
 
-def reinforcement_training(engine, games, metadata, epsilon, gamma):
+def reinforcement_training(engine, games, promos, metadata, epsilon, gamma):
+    from training_data import is_promo
+
     optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=1e-6)
     game_num = 0
     all_grads = []
-    for game in games:
+    for game, promo in zip(games, promos):
         # model created by the previous iteration will serve as the q_value generator
         if game_num % 13 == 0 and game_num != 0:
             engine = Engine("predictor_model.h5")
@@ -76,6 +97,7 @@ def reinforcement_training(engine, games, metadata, epsilon, gamma):
         else:
             winner = 2
 
+        promo_num = 0
         for move in game:
             with tf.GradientTape(watch_accessed_variables=False) as tape:
                 tape.watch(engine.model.trainable_variables)
@@ -109,10 +131,14 @@ def reinforcement_training(engine, games, metadata, epsilon, gamma):
             grads = tape.gradient(loss_value, engine.model.trainable_variables)
             all_grads.append(grads)
 
-            temp_game.make_move(move, save=False, promo_code=0)
+            temp_game.make_move(move, save=False, promo_code=promo[promo_num])
+
+            if is_promo(player_color, move) and temp_game.board.board[move[0]].piece_type == 1:
+                promo_num += 1
+
             player_color = 1 - player_color
             enemy_color = 1 - player_color
-            epsilon = epsilon * 0.9995
+            epsilon = epsilon * 0.99
 
         if game_num % 12 == 0 and game_num != 0:
             # apply all gradients from sample games

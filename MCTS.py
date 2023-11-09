@@ -1,6 +1,7 @@
 import numpy as np
 import math
 
+
 class MCTS:
 
     def search(color, visited, game, nnet, Q_values, N, P):

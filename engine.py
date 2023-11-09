@@ -2,6 +2,7 @@ from training_data import split_dims
 from tensorflow import keras
 import numpy as np
 
+
 class Engine:
     def __init__(self, model_name="default_engine1.h5"):
         self.model = keras.models.load_model(model_name)
@@ -44,6 +45,7 @@ class Engine:
         board3d = np.expand_dims(board3d, 0)
         return self.model(board3d)
 
+    # Utilize search to find the move with the highest evaluation in the position; make that move.
     def make_CPU_move(self, color, game, depth):
         if color == 0:
             enemy_is_maxing = False
@@ -61,6 +63,7 @@ class Engine:
             best_eval = np.Infinity
 
         promo_num = 0
+        best_promo = -1
         for moveset in moves:
             for move in moveset:
                 save_state = game.make_move(move, save=True, promo_code=promo_num % 4)
@@ -73,17 +76,19 @@ class Engine:
                     if curr_eval > best_eval:
                         best_eval = curr_eval
                         best_move = move
+                        best_promo = promo_num
                 else:
                     if curr_eval < best_eval:
                         best_eval = curr_eval
                         best_move = move
+                        best_promo = promo_num
 
                 game.undo_move(save_state)
 
                 if game.board.board[move[0]].piece_type == 1 and self.is_promo(color, move):
                     promo_num += 1
 
-        game.make_move(best_move, save=False)
+        game.make_move(best_move, save=False, promo_code=best_promo % 4)
 
     # performs a minimax search with alpha-beta pruning and returns the best possible evaluation from the position
     def search(self, game, depth, alpha, beta, maxing_player, color):
