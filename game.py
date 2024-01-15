@@ -197,6 +197,7 @@ class Game:
 
         king_moves = self.board.generate_king_moves(pieces[0][0])
         pawn_moves = []
+
         for piece_pos in pieces[1]:
             if piece_pos == -1:
                 continue
@@ -348,7 +349,7 @@ class Game:
     def promote_pawn(self, color, pos_promoted, promo_code):
         promoted_piece_type = -1
 
-        # this perft_code will be something other than -1 when a promotion is made by the cpu or by perft in testing
+        # this promo_code will be something other than -1 when a promotion is made by the cpu or by perft in testing
         if promo_code != -1:
             promoted_piece_type = promo_code + 2
         # prompt the player for what they want to promote the pawn to

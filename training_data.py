@@ -1,5 +1,5 @@
 import json
-
+import random
 import numpy as np
 from game import Game
 
@@ -331,7 +331,7 @@ def split_and_eval(games, promos):
             if material_count(temp_game) != 0:
                 evaluations.append(material_count(temp_game))
             else:
-                evaluations.append(np.random.randint(-1.5, 1.5))
+                evaluations.append(random.uniform(-1, 1))
 
             temp_game.make_move(move, save=False, promo_code=promo[promo_num])
             move_count += 1

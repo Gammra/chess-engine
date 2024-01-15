@@ -2,6 +2,7 @@ from game import Game
 from board import Board
 from board import Piece
 from engine import Engine
+import arena
 import json
 import rl
 import training_data
@@ -35,7 +36,7 @@ def display_debug_menu():
     test_mode = input("1: Engine testing\n"
                       "2: Two-player testing\n"
                       "3: perft testing\n"
-                      "4: Unit testing\n"
+                      "4: Speed testing\n"
                       "Please select what you would like to do by inputting one of the numbers above: ")
     return test_mode
 
@@ -55,6 +56,7 @@ def run_game(engine):
             os.system('cls')
 
     game = Game(player_color, CPU_color)
+    engine.cpu_color = CPU_color
 
     # run the game loop until a mate is reached
     while game.checkmate == -1:
@@ -64,7 +66,7 @@ def run_game(engine):
             if player_color == 0:
                 game.make_player_move()
             else:
-                engine.make_CPU_move(game.CPU_color, game, 3)
+                engine.make_CPU_move(game.CPU_color, game, 2)
             if game.is_mate(0, 1):
                 break
 
@@ -73,7 +75,7 @@ def run_game(engine):
             if player_color == 1:
                 game.make_player_move()
             else:
-                engine.make_CPU_move(game.CPU_color, game, 3)
+                engine.make_CPU_move(game.CPU_color, game, 2)
             if game.is_mate(1, 0):
                 break
 
@@ -101,13 +103,10 @@ def train_model(engine, training_filename, model_name):
     epochs = 5
     conv_size, conv_depth = 32, 3
 
-    if training_filename != "pgns/":
+    # if a training filename was entered
+    if training_filename != "pgns/.pgn":
         metadata, games, promos = training_data.import_train_data(training_filename)
         train_pos, train_eval = training_data.split_and_eval(games, promos)
-        """
-        with open("training_data/training_promos.txt", "w") as f:
-            json.dump(promos, f)
-        """
     else:
         train_pos, train_eval = training_data.load_all_train_data()
         with open("training_data/training_games.txt", "r") as f:
@@ -123,8 +122,9 @@ def train_model(engine, training_filename, model_name):
         engine.train(train_pos, train_eval, model_name, num_epochs=epochs)
 
     epsilon = 0.99
-    gamma = 0.95
+    gamma = 0.99
     rl.reinforcement_training(engine, games, promos, metadata, epsilon, gamma)
+    # arena.self_play(10, 10, engine)
 
 
 def run_debug():
@@ -132,8 +132,8 @@ def run_debug():
     done = False
     while not done:
         test_mode = display_debug_menu()
-        if not 49 <= ord(test_mode) <= 51:
-            print("Invalid input. Input must be a number 1-3.")
+        if not 49 <= ord(test_mode) <= 52:
+            print("Invalid input. Input must be a number 1-4.")
         else:
             done = True
             os.system('cls')
