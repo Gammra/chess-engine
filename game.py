@@ -57,6 +57,17 @@ class Game:
         self.white_piece_pos = [[], [], [], [], [], []]
         self.black_piece_pos = [[], [], [], [], [], []]
 
+    def init_from_state(self, state):
+        self.player_color = state[0]
+        self.CPU_color = state[1]
+        self.board = state[2]
+        self.checkmate = state[3]
+        self.en_passant = state[4]
+        self.castles_queenside = state[5]
+        self.castles_kingside = state[6]
+        self.white_piece_pos = state[7]
+        self.black_piece_pos = state[8]
+
     @staticmethod
     def init_pos(color):
         piece_pos = [[], [], [], [], [], []]

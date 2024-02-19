@@ -1,3 +1,5 @@
+import numpy as np
+
 from game import Game
 from board import Board
 from board import Piece
@@ -66,7 +68,7 @@ def run_game(engine):
             if player_color == 0:
                 game.make_player_move()
             else:
-                engine.make_CPU_move(game.CPU_color, game, 2)
+                engine.make_CPU_move(game.CPU_color, game, 3)
             if game.is_mate(0, 1):
                 break
 
@@ -75,7 +77,7 @@ def run_game(engine):
             if player_color == 1:
                 game.make_player_move()
             else:
-                engine.make_CPU_move(game.CPU_color, game, 2)
+                engine.make_CPU_move(game.CPU_color, game, 3)
             if game.is_mate(1, 0):
                 break
 
@@ -99,31 +101,28 @@ Then pretrain the model using this data, and enter the reinforcement learning lo
 directly to RL).
 """
 def train_model(engine, training_filename, model_name):
+    pgn_name = training_filename
     training_filename = "pgns/" + training_filename
-    epochs = 5
-    conv_size, conv_depth = 32, 3
+    conv_size, conv_depth = 64, 3
 
     # if a training filename was entered
     if training_filename != "pgns/.pgn":
         metadata, games, promos = training_data.import_train_data(training_filename)
-        train_pos, train_eval = training_data.split_and_eval(games, promos)
+        with open(f"training_data/{pgn_name}_metadata.txt", "w") as f:
+            json.dump(metadata, f)
+        moves, game_nums, game_states = training_data.generate_states(games, promos)
+    # load default data
     else:
-        train_pos, train_eval = training_data.load_all_train_data()
-        with open("training_data/training_games.txt", "r") as f:
-            games = json.load(f)
-        with open("training_data/training_metadata.txt", "r") as f:
-            metadata = json.load(f)
-        with open("training_data/training_promos.txt", "r") as f:
-            promos = json.load(f)
+        moves, game_nums, game_states, metadata = training_data.load_all_train_data()
 
-    skip = input("Would you like to skip to reinforcement training? ")
-    if skip == "n":
-        engine.model = engine.build_model(conv_size, conv_depth)
-        engine.train(train_pos, train_eval, model_name, num_epochs=epochs)
+    engine.build_model(conv_size, conv_depth)
+    engine.compile_model()
 
-    epsilon = 0.99
-    gamma = 0.99
-    rl.reinforcement_training(engine, games, promos, metadata, epsilon, gamma)
+    epsilon = 0.97
+    gamma = 0.97
+    batch_size = 1024
+    epochs = 24
+    rl.reinforcement_training(engine, model_name, moves, game_nums, game_states, metadata, epsilon, gamma, batch_size, epochs)
     # arena.self_play(10, 10, engine)
 
 

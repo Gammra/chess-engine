@@ -1,13 +1,9 @@
 import json
 import random
+import copy
 import numpy as np
 from game import Game
-
-PAWN_VALUE = 1
-KNIGHT_VALUE = 3.1
-BISHOP_VALUE = 3.2
-ROOK_VALUE = 4.9
-QUEEN_VALUE = 9.8
+from itertools import chain
 
 
 def is_promo(color, move):
@@ -21,12 +17,22 @@ def is_promo(color, move):
 
 
 def load_all_train_data():
-    naka_test_pos = np.load('training_data/nakamurapositions.npy')
-    naka_test_evals = np.load('training_data/nakamuraevaluations.npy')
-    carlsen_test_pos = np.load('training_data/carlsenpositions.npy')
-    carlsen_test_evals = np.load('training_data/carlsenevaluations.npy')
+    naka_moves = np.load('training_data/nakamura_moves.npy')
+    naka_games = np.load('training_data/nakamura_game_nums.npy')
+    naka_states = np.load('training_data/nakamura_states.npy', allow_pickle=True)
+    carlsen_games = np.load('training_data/carlsen_game_nums.npy')
+    carlsen_moves = np.load('training_data/carlsen_moves.npy')
+    carlsen_states = np.load('training_data/carlsen_states.npy', allow_pickle=True)
+    moves = np.vstack((naka_moves, carlsen_moves))
+    game_nums = np.hstack((naka_games, carlsen_games))
+    game_states = np.vstack((naka_states, carlsen_states))
+    with open("training_data/Carlsen.pgn_metadata.txt", "r") as f:
+        carlsen_metadata = json.load(f)
+    with open("training_data/Nakamura.pgn_metadata.txt", "r") as f:
+        nakamura_metadata = json.load(f)
+    metadata = nakamura_metadata + carlsen_metadata
 
-    return np.concatenate((naka_test_pos, carlsen_test_pos)), np.concatenate((naka_test_evals, carlsen_test_evals))
+    return moves, game_nums, game_states, metadata
 
 
 def import_train_data(filename):
@@ -71,6 +77,7 @@ def import_train_data(filename):
         return metadata, converted_games, promos
 
 
+# converts each move from the PGN representation to (pos1, pos2) tuple representation
 def convert_to_numeric(game, temp_game):
     numeric_game = []
     promos = []
@@ -309,91 +316,55 @@ def convert_to_numeric(game, temp_game):
     return numeric_game, promos
 
 
-def split_and_eval(games, promos):
-    positions = []
-    evaluations = []
+# walk through each game and save the state and board representation of each position
+def generate_states(games, promos):
+    game_nums = []
+    states = []
+    game_num = 0
 
     for game, promo in zip(games, promos):
         temp_game = Game(0, 1)
-        move_count = 0
-
         promo_num = 0
         for move in game:
-            piece_type = temp_game.board.board[move[0]].piece_type
             color = temp_game.board.board[move[0]].color
-            w_attacked, dummy = temp_game.all_squares_attacked(0)
-            b_attacked, dummy = temp_game.all_squares_attacked(1)
 
-            # convert the board state to a numpy array that can be fed into model
-            board3d = split_dims(temp_game.board, w_attacked, b_attacked)
-            # add to the list of corresponding positions and evaluations
-            positions.append(board3d)
-            if material_count(temp_game) != 0:
-                evaluations.append(material_count(temp_game))
-            else:
-                evaluations.append(random.uniform(-1, 1))
+            # save the current state of the game to be loaded
+            state = (copy.deepcopy(temp_game.player_color), copy.deepcopy(temp_game.CPU_color), copy.deepcopy(temp_game.board), copy.deepcopy(temp_game.checkmate),
+                     copy.deepcopy(temp_game.en_passant), copy.deepcopy(temp_game.castles_queenside), copy.deepcopy(temp_game.castles_kingside),
+                     copy.deepcopy(temp_game.white_piece_pos), copy.deepcopy(temp_game.black_piece_pos))
+
+            # add to the list of corresponding positions and game_nums
+            game_nums.append(game_num)
+            states.append(state)
 
             temp_game.make_move(move, save=False, promo_code=promo[promo_num])
-            move_count += 1
 
             if is_promo(color, move) and temp_game.board.board[move[0]].piece_type == 1:
                 promo_num += 1
 
-    positions = np.array(positions)
-    evaluations = np.array(evaluations)
+        game_num += 1
+
+    moves = list(chain.from_iterable(games))
+    moves = np.array(moves)
+    game_nums = np.array(game_nums)
+    states = np.array(states)
 
     save = input("Would you like to save the training data? ")
 
     if save == "y":
-        save_training_data(positions, evaluations, promos)
+        save_training_data(game_nums, states, moves)
 
-    return positions, evaluations
-
-
-def material_count(game):
-    w_total = 0
-    b_total = 0
-    for pos in game.white_piece_pos[1]:
-        if pos != -1:
-            w_total += PAWN_VALUE
-    for pos in game.white_piece_pos[2]:
-        if pos != -1:
-            w_total += KNIGHT_VALUE
-    for pos in game.white_piece_pos[3]:
-        if pos != -1:
-            w_total += BISHOP_VALUE
-    for pos in game.white_piece_pos[4]:
-        if pos != -1:
-            w_total += ROOK_VALUE
-    for pos in game.white_piece_pos[5]:
-        if pos != -1:
-            w_total += QUEEN_VALUE
-    for pos in game.black_piece_pos[1]:
-        if pos != -1:
-            b_total += PAWN_VALUE
-    for pos in game.black_piece_pos[2]:
-        if pos != -1:
-            b_total += KNIGHT_VALUE
-    for pos in game.black_piece_pos[3]:
-        if pos != -1:
-            b_total += BISHOP_VALUE
-    for pos in game.black_piece_pos[4]:
-        if pos != -1:
-            b_total += ROOK_VALUE
-    for pos in game.black_piece_pos[5]:
-        if pos != -1:
-            b_total += QUEEN_VALUE
-    return w_total - b_total
+    return moves, game_nums, states
 
 
-def save_training_data(positions, evaluations, promos):
+def save_training_data(game_nums, states, moves):
         filename = input("Input a filename: ")
-        pos_name = filename + "positions"
-        eval_name = filename + "evaluations"
-        promo_name = filename + "promos"
-        np.save(pos_name, positions)
-        np.save(eval_name, evaluations)
-        np.save(promo_name, promos)
+        game_names = f"training_data/{filename}_game_nums"
+        state_name = f"training_data/{filename}_states"
+        moves_name = f"training_data/{filename}_moves"
+        np.save(game_names, game_nums)
+        np.save(state_name, states)
+        np.save(moves_name, moves)
 
 
 def split_dims(board, w_attacked, b_attacked):
