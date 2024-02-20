@@ -39,42 +39,53 @@ def get_reward(game, color, winner, move_selected, move_actual, enemy_attacked, 
     reward = 0
     enemy_color = 1 - color
 
-    # reward moving d and e pawns off original squares
-    if game.board.board[move_selected[0]].piece_type == 1 and 3 <= move_selected[0] % 8 <= 4 \
-            and (move_selected[0] // 8 == 1 or move_selected[0] // 8 == 6):
-        reward += 0.01
+
+    if game.board.board[move_selected[0]].piece_type == 1 and (move_selected[0] // 8 == 1 or move_selected[0] // 8 == 6):
+        # reward moving d and e pawns off original squares
+        if 3 <= move_selected[0] % 8 <= 4:
+            reward += 0.05
+        # try not to move so much the edge pawns
+        if (0 <= move_selected[0] % 8 <= 1) or 6 <= (move_selected[0] % 8 <= 7):
+            reward -= 0.01
 
     # reward moving knights and bishops off original squares
     if (game.board.board[move_selected[0]].piece_type == 2 or game.board.board[move_selected[0]].piece_type == 3) and \
         (move_selected[0] // 8 == 0 or move_selected[0] // 8 == 7):
-        reward += 0.01
+        reward += 0.05
+
+    # keep knights off the rim
+    if game.board.board[move_selected[0]].piece_type == 2 and ((move_selected[0] % 8 == 0) or (move_selected[0] % 8 == 7)):
+        reward -= 0.01
 
     # reward castling
     if game.is_legal_castle(move_selected, enemy_attacked):
-        reward += 0.1
+        reward += 0.2
+    # but punish other king movements
+    elif game.board.board[move_selected[0]].piece_type == 0:
+        reward -= 0.01
 
     # reward promos
     if is_promo(color, move_selected):
-        reward += 0.5
+        reward += 0.4
 
     # reward if the move was the actual move selected by a pro
     if move_selected == move_actual:
         reward += 0.01
         # if the pro won, increase the reward
         if color == winner:
-            reward += 0.05
+            reward += 0.025
 
     # reward taking
     if game.board.board[move_selected[1]].color == enemy_color:
-        reward += 0.05
+        reward += 0.001
 
     # reward taking hanging pieces
     if game.board.board[move_selected[1]].color == enemy_color and enemy_attacked[move_selected[1]] != 1:
-        reward += PIECE_VALUES[game.board.board[move_selected[1]].piece_type] * 0.01
+        reward += PIECE_VALUES[game.board.board[move_selected[1]].piece_type] * 0.005
 
     # avoid hanging
     if enemy_attacked[move_selected[1]] == 1 and player_attacked[move_selected[1]] == 0:
-        reward -= PIECE_VALUES[game.board.board[move_selected[0]].piece_type] * 0.1
+        reward -= PIECE_VALUES[game.board.board[move_selected[0]].piece_type] * 0.075
 
     if color == 1:
         reward = 0 - reward

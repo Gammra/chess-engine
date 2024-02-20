@@ -120,7 +120,7 @@ def train_model(engine, training_filename, model_name):
 
     epsilon = 0.97
     gamma = 0.97
-    batch_size = 1024
+    batch_size = 512
     epochs = 24
     rl.reinforcement_training(engine, model_name, moves, game_nums, game_states, metadata, epsilon, gamma, batch_size, epochs)
     # arena.self_play(10, 10, engine)
