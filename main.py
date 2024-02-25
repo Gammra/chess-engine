@@ -1,13 +1,12 @@
-import numpy as np
-
 from game import Game
 from board import Board
 from board import Piece
 from engine import Engine
 import arena
-import json
-import rl
 import training_data
+import rl
+import json
+
 import os
 import time
 import test
@@ -28,7 +27,8 @@ def display_menu():
                  "2: Load a model\n"
                  "3: Train a model\n"
                  "4: Debug\n"
-                 "5: Quit\n"
+                 "5: Info\n"
+                 "6: Quit\n"
                  "Please select what you would like to do by inputting one of the numbers above: ")
     return mode
 
@@ -37,10 +37,20 @@ def display_debug_menu():
     print("Please select which type of testing you would like to perform.")
     test_mode = input("1: Engine testing\n"
                       "2: Two-player testing\n"
-                      "3: perft testing\n"
+                      "3: perft\n"
                       "4: Speed testing\n"
                       "Please select what you would like to do by inputting one of the numbers above: ")
     return test_mode
+
+
+def display_info():
+    # TODO add more description
+    print("This chess engine, nicknamed Scooter, was developed by me, Jack Suber. I started this project in October \n"
+          "2022 with almost no knowledge of Python or AI. The program utilizes a deep-Q learning algorithm to train \n"
+          "the engine on a dataset of positions, and through self-play. My end goal for the project was to create a \n"
+          "chess engine that plays at least on the level of a mid level player of ~1500 ELO.")
+    input("Press any button to return to the menu. ")
+    return
 
 
 def run_game(engine):
@@ -94,36 +104,47 @@ def load_model(engine, model_name):
 
 
 """
-If the user entered a filename, load the chosen PGN file. Convert from PGN format to a list of moves (pos1, pos2), and 
-evaluate each position reached in each game.
+If the user entered a filename, load the chosen PGN file. Convert from PGN format to a list of moves (pos1, pos2)
 If the user did not enter a filename, load the default preprocessed data.
-Then pretrain the model using this data, and enter the reinforcement learning loop (if the user wants, they can skip
-directly to RL).
+Then pretrain the model using this data, and enter the RL loop for training on the data(if the user wants, they can skip
+directly to self-play).
 """
 def train_model(engine, training_filename, model_name):
-    pgn_name = training_filename
-    training_filename = "pgns/" + training_filename
-    conv_size, conv_depth = 64, 3
+    self_train = input("Would you like to skip to self training (y or n)? ")
 
-    # if a training filename was entered
-    if training_filename != "pgns/.pgn":
-        metadata, games, promos = training_data.import_train_data(training_filename)
-        with open(f"training_data/{pgn_name}_metadata.txt", "w") as f:
-            json.dump(metadata, f)
-        moves, game_nums, game_states = training_data.generate_states(games, promos)
-    # load default data
-    else:
-        moves, game_nums, game_states, metadata = training_data.load_all_train_data()
+    if self_train == 'n':
+        pgn_name = training_filename
+        training_filename = "pgns/" + training_filename
+        conv_size, conv_depth = 64, 3
 
-    engine.build_model(conv_size, conv_depth)
-    engine.compile_model()
+        # if a training filename was entered
+        if training_filename != "pgns/.pgn":
+            # check valid filename
+            while not os.path.isfile(training_filename):
+                print("File does not exist. Please try again\n")
+                training_filename = input("Input a training data filename ") + ".pgn"
+                training_filename = "pgns/" + training_filename
 
-    epsilon = 0.97
-    gamma = 0.97
-    batch_size = 512
-    epochs = 24
-    rl.reinforcement_training(engine, model_name, moves, game_nums, game_states, metadata, epsilon, gamma, batch_size, epochs)
-    # arena.self_play(10, 10, engine)
+            metadata, games, promos = training_data.import_train_data(training_filename)
+            with open(f"training_data/{pgn_name}_metadata.txt", "w") as f:
+                json.dump(metadata, f)
+            moves, game_nums, game_states = training_data.generate_states(games, promos)
+
+        # load default data
+        else:
+            moves, game_nums, game_states, metadata = training_data.load_all_train_data()
+
+        engine.build_model(conv_size, conv_depth)
+        engine.compile_model()
+
+        epsilon = 0.97
+        gamma = 0.97
+        batch_size = 512
+        epochs = 10
+        rl.reinforcement_training(engine, model_name, moves, game_nums, game_states,
+                                  metadata, epsilon, gamma, batch_size, epochs)
+
+    arena.self_play(10, 10, engine)
 
 
 def run_debug():
@@ -159,22 +180,45 @@ def main():
     while not done:
         mode = display_menu()
         engine = Engine()
+
+        # play against the engine
         if mode == "1":
             run_game(engine)
+
+        # load a model
         elif mode == "2":
-            model_name = input("Input a model name: ")
-            load_model(engine, model_name)
-        elif mode == "3":
-            training_data_name = input("Input a training data filename (leave blank to load default data): ") + ".pgn"
+            print("Current models: test\n")
             model_name = input("Input a model name: ") + ".h5"
-            train_model(engine, training_data_name, model_name)
+            while not os.path.isfile(model_name):
+                print("Invalid model name. Please try again\n")
+                model_name = input("Input a model name: ")
+            load_model(engine, model_name)
+            print("Model Loaded!\n")
+
+        # run training
+        elif mode == "3":
+            training_data_filename = input("Input a training data filename "
+                                           "(leave blank to load default data): ") + ".pgn"
+            model_name = input("Create a model name: ") + ".h5"
+            train_model(engine, training_data_filename, model_name)
+            print("Training Complete!\n")
+
+        # debug
         elif mode == "4":
             run_debug()
+
+        # display the info page
         elif mode == "5":
+            display_info()
+
+        # close program
+        elif mode == "6":
             done = True
             exit(0)
+
+        # invalid input
         else:
-            print("Invalid input. Input must be a number 1-5. \n")
+            print("Invalid input. Input must be a number 1-6. \n")
             time.sleep(3)
             os.system('cls')
 

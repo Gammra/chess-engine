@@ -20,7 +20,7 @@ bn_img = pygame.image.load(os.path.join('assets', 'bn.png'))
 
 empty = Piece(-1, -1)  # fills blank spaces
 
-
+# Class that stores the relevant information to return to a previous game pos. Used to undo moves.
 class SaveState:
     def __init__(self, move, piece_moved, piece_captured, castle_queenside, castle_kingside, en_passant, promo, is_ep):
         self.move = move
@@ -172,6 +172,7 @@ class Game:
         while not turn_complete:
             init_pos = self.select_square()
             piece_selected = self.board.board[init_pos]
+
             # guarantee that the piece selected belongs to the player
             if piece_selected.color == self.player_color:
                 target_pos = self.select_square()
@@ -208,9 +209,8 @@ class Game:
 
         king_moves = self.board.generate_king_moves(pieces[0][0])
         pawn_moves = []
-
         for piece_pos in pieces[1]:
-            if piece_pos == -1:
+            if piece_pos == -1:  # a piece at -1 means it is dead
                 continue
             pawn_moves += self.board.generate_pawn_attacks(piece_pos, self.en_passant)
         knight_moves = []
@@ -235,9 +235,9 @@ class Game:
             queen_moves += self.board.generate_queen_moves(piece_pos, True, xrays)
 
         all_moves = [king_moves, pawn_moves, knight_moves, bishop_moves, rook_moves, queen_moves]
-        for i in all_moves:
-            for j in i:
-                squares_attacked[j] = 1
+        for moveset in all_moves:
+            for pos in moveset:
+                squares_attacked[pos] = 1
 
         return squares_attacked, xrays
 
@@ -253,8 +253,7 @@ class Game:
         if enemy_attacked[king_pos] == 1:
             save_state = self.make_move(move, save=True, promo_code=0)
             king_pos_after_move = pieces[0][0]
-            # dummy is unimportant xray data
-            temp_enemy_attacked, dummy = self.all_squares_attacked(enemy_color)
+            temp_enemy_attacked, dummy = self.all_squares_attacked(enemy_color)  # dummy is unimportant xray data
             self.undo_move(save_state)
             if temp_enemy_attacked[king_pos_after_move] == 1:
                 return True
@@ -265,7 +264,10 @@ class Game:
 
         # check if move reveals a discovered check against king
         for xray in xrays:
-            # xray[0] is the xrayed piece, xray[1] is the vector of the xray
+            """
+            xray[0] is the xrayed piece, xray[1] is the vector of the xray. If the xrayed piece moves along a different 
+            vector than the vector of the xray, the king will be under attack.
+            """
             if xray[0] == move[0] and abs(move[1]-move[0]) % xray[1] != 0:
                 return True
             if xray[0] == move[0] and abs(xray[1]) == 1 and (move[1] // 8) != (move[0] // 8):
@@ -431,7 +433,8 @@ class Game:
         piece_attacked = self.board.board[move[1]]
         piece_color = piece_moved.color
         enemy_color = 1 - piece_color
-        state = SaveState(move, piece_moved, empty, self.castles_queenside.copy(), self.castles_kingside.copy(), self.en_passant.copy(), False, False)
+        state = SaveState(move, piece_moved, empty, self.castles_queenside.copy(),
+                          self.castles_kingside.copy(), self.en_passant.copy(), False, False)
 
         piece_list = []
         if piece_color == 0:

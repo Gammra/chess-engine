@@ -6,6 +6,7 @@ from game import Game
 from itertools import chain
 
 
+@staticmethod
 def is_promo(color, move):
     if color == 0:
         if move[1] // 8 == 7:

@@ -5,6 +5,7 @@ import cProfile
 import pstats
 
 
+@staticmethod
 def is_promo(color, move):
     if color == 0:
         if move[1] // 8 == 7:
@@ -36,14 +37,8 @@ def perft(game, depth, color, enemy_color):
 
 def debug_training():
     from main import train_model
-
     engine = Engine()
-
-    load_data = input("Would you like to load preprocessed training data? ")
-    if load_data == "n":
-        training_filename = input("Please enter the name of the training data you would like to load: ") + ".pgn"
-    else:
-        training_filename = ""
+    training_filename = input("Input a training data filename(leave blank to load default data): ") + ".pgn"
     model_name = input("Please enter a name for the model: ") + ".h5"
     train_model(engine, training_filename, model_name)
     engine.model.summary()
@@ -130,6 +125,7 @@ def perft_testing():
 
 
 def profiling():
+    # test move generation speed
     runtime_test_game = read_fen("perft_positions/pos2.txt")
     pr = cProfile.Profile()
     pr.enable()

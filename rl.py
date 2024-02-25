@@ -1,13 +1,14 @@
-import random
-import pandas as pd
-import matplotlib as plt
-plt.use("qt5agg")
+from game import Game
 import seaborn as sns
 import numpy as np
 import tensorflow as tf
-from game import Game
-from engine import Engine
+
+import random
 from itertools import chain
+import pandas as pd
+import matplotlib as plt
+plt.use("qt5agg")
+
 
 PAWN_VALUE = 1
 KNIGHT_VALUE = 3.1
@@ -15,7 +16,7 @@ BISHOP_VALUE = 3.2
 ROOK_VALUE = 4.9
 QUEEN_VALUE = 9.8
 
-PIECE_VALUES = [-1, PAWN_VALUE, KNIGHT_VALUE, BISHOP_VALUE, ROOK_VALUE, QUEEN_VALUE]
+PIECE_VALUES = [0, PAWN_VALUE, KNIGHT_VALUE, BISHOP_VALUE, ROOK_VALUE, QUEEN_VALUE]
 
 
 def get_q_values(engine, game, moves, color):
@@ -36,56 +37,48 @@ def get_q_values(engine, game, moves, color):
 
 def get_reward(game, color, winner, move_selected, move_actual, enemy_attacked, player_attacked):
     from training_data import is_promo
+    init_pos = move_selected[0]
+    final_pos = move_selected[1]
     reward = 0
     enemy_color = 1 - color
 
-
-    if game.board.board[move_selected[0]].piece_type == 1 and (move_selected[0] // 8 == 1 or move_selected[0] // 8 == 6):
+    if game.board.board[init_pos].piece_type == 1 and ((init_pos // 8) == 1 or (init_pos // 8) == 6):
         # reward moving d and e pawns off original squares
         if 3 <= move_selected[0] % 8 <= 4:
-            reward += 0.05
-        # try not to move so much the edge pawns
-        if (0 <= move_selected[0] % 8 <= 1) or 6 <= (move_selected[0] % 8 <= 7):
-            reward -= 0.01
+            reward += 0.001
 
     # reward moving knights and bishops off original squares
-    if (game.board.board[move_selected[0]].piece_type == 2 or game.board.board[move_selected[0]].piece_type == 3) and \
-        (move_selected[0] // 8 == 0 or move_selected[0] // 8 == 7):
-        reward += 0.05
+    if game.board.board[init_pos].piece_type == 2 or game.board.board[init_pos].piece_type == 3:
+        if (init_pos // 8) == 0 or (init_pos // 8) == 7:
+            reward += 0.001
 
     # keep knights off the rim
-    if game.board.board[move_selected[0]].piece_type == 2 and ((move_selected[0] % 8 == 0) or (move_selected[0] % 8 == 7)):
-        reward -= 0.01
+    if game.board.board[init_pos].piece_type == 2 and ((final_pos % 8 == 0) or (final_pos % 8 == 7)):
+        reward -= 0.001
 
     # reward castling
-    if game.is_legal_castle(move_selected, enemy_attacked):
-        reward += 0.2
-    # but punish other king movements
-    elif game.board.board[move_selected[0]].piece_type == 0:
-        reward -= 0.01
+    if game.board.board[init_pos].piece_type == 0 and 2 <= abs(init_pos-final_pos) <= 3:
+        reward += 0.005
 
     # reward promos
     if is_promo(color, move_selected):
-        reward += 0.4
+        reward += 0.005
 
-    # reward if the move was the actual move selected by a pro
-    if move_selected == move_actual:
-        reward += 0.01
-        # if the pro won, increase the reward
-        if color == winner:
-            reward += 0.025
+    # reward if the move was the actual move selected by a pro, and pro won
+    if move_selected == move_actual and color == winner:
+        reward += 0.005
 
     # reward taking
     if game.board.board[move_selected[1]].color == enemy_color:
-        reward += 0.001
+        reward += 0.005
 
     # reward taking hanging pieces
-    if game.board.board[move_selected[1]].color == enemy_color and enemy_attacked[move_selected[1]] != 1:
-        reward += PIECE_VALUES[game.board.board[move_selected[1]].piece_type] * 0.005
+    if game.board.board[final_pos].color == enemy_color and enemy_attacked[final_pos] != 1:
+        reward += PIECE_VALUES[game.board.board[final_pos].piece_type] * 0.05
 
     # avoid hanging
-    if enemy_attacked[move_selected[1]] == 1 and player_attacked[move_selected[1]] == 0:
-        reward -= PIECE_VALUES[game.board.board[move_selected[0]].piece_type] * 0.075
+    if enemy_attacked[final_pos] == 1 and player_attacked[final_pos] == 0:
+        reward -= PIECE_VALUES[game.board.board[init_pos].piece_type] * 0.05
 
     if color == 1:
         reward = 0 - reward
@@ -97,14 +90,15 @@ def reinforcement_training(engine, model_name, moves, game_nums, game_states, me
     all_grads = []
     loss_over_time = []
 
+    original_epsilon = epsilon
+
     sample = random.sample(range(0, len(game_states)), batch_size*2)
-    hold_out = sample[batch_size:]
+    hold_out = sample[batch_size:]  # TODO implement validation
     sample = sample[:batch_size]
 
     for epoch in range(epochs):
-        if epoch == epochs-1:
-            loss_over_time = []
-            sample = hold_out
+        np.random.shuffle(sample)
+
         for i in sample:
             with tf.GradientTape(watch_accessed_variables=False) as tape:
                 tape.watch(engine.model.trainable_variables)
@@ -162,6 +156,6 @@ def reinforcement_training(engine, model_name, moves, game_nums, game_states, me
         loss_chart["iter"] = range(1, len(loss_chart) + 1)
         sns.scatterplot(data=loss_chart, x="iter", y="loss")
 
-        epsilon = epsilon * epsilon
+        epsilon = original_epsilon * epsilon
 
     engine.model.save(model_name, save_format="h5")
